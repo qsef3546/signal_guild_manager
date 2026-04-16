@@ -478,21 +478,40 @@ function renderPool(){
   const q=(document.getElementById('partySearch')?.value||'').trim();
   const el=document.getElementById('memberPool');el.innerHTML='';
   let absCnt=0;
-  members.forEach(m=>{
-    if((pFilter!=='all'&&m.job!==pFilter)||(q&&!m.name.includes(q)))return;
-    const isAbs=partyAbsSet.has(m.id);
-    const inParty=parties.some(p=>p.slots.includes(m.id));
-    if(isAbs)absCnt++;
-    const c=document.createElement('div');
-    c.className='member-card'+(inParty?' in-party':'')+(isAbs?' absent':'');
-    c.style.borderColor=(JC[m.job]||'#888')+(isAbs?'bb':'44');
-    c.draggable=!inParty;c.dataset.id=m.id;
-    c.innerHTML=`${isAbs?'<div class="absent-dot">!</div>':''}<span class="job-dot" style="background:${JC[m.job]||'#888'}"></span><span>${m.name}</span><span style="font-size:10px;color:#888;margin-left:2px">${m.rank}</span>`;
-    if(!inParty){
-      c.addEventListener('dragstart',e=>{dragId=m.id;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
-      c.addEventListener('dragend',()=>c.classList.remove('dragging'));
-    }
-    el.appendChild(c);
+  const JOBS=['전사','사제','헌터','거너','마법사'];
+  const jobsToShow=pFilter==='all'?JOBS:[pFilter];
+  jobsToShow.forEach(job=>{
+    const jobMembers=members.filter(m=>{
+      if(m.job!==job)return false;
+      if(q&&!m.name.includes(q))return false;
+      return true;
+    });
+    if(!jobMembers.length)return;
+    const section=document.createElement('div');
+    section.style.cssText='width:100%;margin-bottom:8px';
+    const header=document.createElement('div');
+    header.style.cssText=`display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:4px;border-bottom:2px solid ${JC[job]}33`;
+    header.innerHTML=`<span style="width:10px;height:10px;border-radius:50%;background:${JC[job]};display:inline-block;flex-shrink:0"></span><span style="font-size:11px;font-weight:700;color:${JC[job]}">${job}</span><span style="font-size:11px;color:#aaa">${jobMembers.length}명</span>`;
+    section.appendChild(header);
+    const cardWrap=document.createElement('div');
+    cardWrap.style.cssText='display:flex;flex-wrap:wrap;gap:3px';
+    jobMembers.forEach(m=>{
+      const isAbs=partyAbsSet.has(m.id);
+      const inParty=parties.some(p=>p.slots.includes(m.id));
+      if(isAbs)absCnt++;
+      const c=document.createElement('div');
+      c.className='member-card'+(inParty?' in-party':'')+(isAbs?' absent':'');
+      c.style.borderColor=(JC[m.job]||'#888')+(isAbs?'bb':'44');
+      c.draggable=!inParty;c.dataset.id=m.id;
+      c.innerHTML=`${isAbs?'<div class="absent-dot">!</div>':''}<span class="job-dot" style="background:${JC[m.job]||'#888'}"></span><span>${m.name}</span><span style="font-size:10px;color:#888;margin-left:2px">${m.rank}</span>`;
+      if(!inParty){
+        c.addEventListener('dragstart',e=>{dragId=m.id;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+        c.addEventListener('dragend',()=>c.classList.remove('dragging'));
+      }
+      cardWrap.appendChild(c);
+    });
+    section.appendChild(cardWrap);
+    el.appendChild(section);
   });
   document.getElementById('poolCount').textContent=members.filter(m=>!parties.some(p=>p.slots.includes(m.id))).length;
   document.getElementById('poolAbsent').textContent=absCnt;
