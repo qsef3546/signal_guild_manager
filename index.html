@@ -93,7 +93,7 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
 .member-card:active{cursor:grabbing;transform:scale(1.03);box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .member-card.dragging{opacity:.35}
 .member-card.in-party{opacity:.35;cursor:default;pointer-events:none}
-.member-card.absent{border-style:dashed!important;position:relative}
+.member-card.absent{border-style:dashed!important;position:relative;opacity:.4;cursor:not-allowed!important;pointer-events:none}
 .absent-dot{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:#E24B4A;font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
 .legend{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#888;font-weight:500}
 .filter-btn{padding:4px 11px;border-radius:20px;border:1px solid #e8e6e0;background:#fff;font-size:12px;cursor:pointer;color:#888;transition:all .15s;font-weight:500}
@@ -518,9 +518,9 @@ function renderPool(){
       const c=document.createElement('div');
       c.className='member-card'+(inParty?' in-party':'')+(isAbs?' absent':'');
       c.style.borderColor=(JC[m.job]||'#888')+(isAbs?'bb':'44');
-      c.draggable=!inParty;c.dataset.id=m.id;
+      c.draggable=!inParty&&!isAbs;c.dataset.id=m.id;
       c.innerHTML=`${isAbs?'<div class="absent-dot">!</div>':''}<span class="job-dot" style="background:${JC[m.job]||'#888'}"></span><span>${m.name}</span><span style="font-size:10px;color:#888;margin-left:2px">${m.rank}</span>`;
-      if(!inParty){
+      if(!inParty&&!isAbs){
         c.addEventListener('dragstart',e=>{dragId=m.id;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
         c.addEventListener('dragend',()=>c.classList.remove('dragging'));
       }
