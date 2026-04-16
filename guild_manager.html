@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>길드 매니저</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#f5f5f3;color:#3d3d3a;min-height:100vh}
+.app{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
+.nav{display:flex;gap:0;border-bottom:1px solid #d3d1c7;margin-bottom:16px;background:#fff;border-radius:10px 10px 0 0;padding:0 12px}
+.nav-btn{padding:12px 18px;font-size:13px;cursor:pointer;border:none;border-bottom:2px solid transparent;color:#888;background:none;font-weight:500;transition:all .15s}
+.nav-btn.active{border-bottom-color:#7827C2;color:#7827C2}
+.page{display:none}.page.active{display:block}
+.card{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:16px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.btn{padding:7px 16px;border-radius:7px;border:1px solid #d3d1c7;background:#fff;color:#3d3d3a;font-size:13px;cursor:pointer;transition:all .15s;font-weight:500}
+.btn:hover{background:#f5f5f3}
+.btn-primary{background:#7827C2;border-color:#7827C2;color:#fff}
+.btn-primary:hover{background:#6620a8;border-color:#6620a8}
+.btn-danger{border-color:#f09595;color:#A32D2D}
+.btn-danger:hover{background:#FCEBEB}
+.btn-sm{padding:4px 10px;font-size:12px}
+.inp{padding:8px 11px;border-radius:7px;border:1px solid #d3d1c7;background:#fff;font-size:13px;color:#3d3d3a;outline:none;width:100%}
+.inp:focus{border-color:#7827C2;box-shadow:0 0 0 3px #7827C220}
+.sel{padding:7px 11px;border-radius:7px;border:1px solid #d3d1c7;background:#fff;font-size:13px;color:#3d3d3a;outline:none;cursor:pointer}
+.sel:focus{border-color:#7827C2}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-expedition{background:#EAF3DE;color:#3B6D11}
+.tag-conquest{background:#FAEEDA;color:#854F0B}
+.job-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;font-weight:500}
+.toast.show{opacity:1}
+.loading{text-align:center;padding:32px;color:#888;font-size:13px}
+.empty{text-align:center;padding:24px;color:#aaa;font-size:13px}
+
+/* 달력 */
+.cal-wrap{background:#fff;border-radius:10px;border:1px solid #e8e6e0;overflow:hidden}
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e8e6e0}
+.cal-month{font-size:16px;font-weight:600;color:#1a1a18}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-day-label{text-align:center;font-size:11px;font-weight:600;color:#888;padding:8px 4px;background:#fafaf8;border-bottom:1px solid #e8e6e0}
+.cal-day-label:first-child{color:#E24B4A}
+.cal-day-label:last-child{color:#378ADD}
+.cal-day{min-height:72px;padding:6px;border-right:1px solid #f0ede8;border-bottom:1px solid #f0ede8;cursor:pointer;transition:background .12s;position:relative}
+.cal-day:hover{background:#faf8ff}
+.cal-day.empty{background:#fafaf8;cursor:default;pointer-events:none}
+.cal-day.today{background:#faf5ff}
+.cal-day.today .cal-num{color:#7827C2;font-weight:700}
+.cal-day:nth-child(7n+1) .cal-num{color:#E24B4A}
+.cal-day:nth-child(7n) .cal-num{color:#378ADD}
+.cal-num{font-size:13px;font-weight:500;margin-bottom:3px}
+.cal-event{font-size:10px;padding:2px 6px;border-radius:4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.cal-event.expedition{background:#EAF3DE;color:#3B6D11}
+.cal-event.conquest{background:#FAEEDA;color:#854F0B}
+.sched-form{background:#faf5ff;border:1px solid #c4a8e8;border-radius:10px;padding:14px;margin-bottom:12px}
+.sched-form-title{font-size:14px;font-weight:600;color:#7827C2;margin-bottom:10px}
+
+/* 단원 */
+.member-table{width:100%;border-collapse:collapse;font-size:13px}
+.member-table th{text-align:left;padding:8px 10px;background:#fafaf8;border-bottom:1px solid #e8e6e0;font-weight:600;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.member-table td{padding:8px 10px;border-bottom:1px solid #f0ede8}
+.member-table tr:last-child td{border-bottom:none}
+.member-table tr:hover td{background:#fafaf8}
+
+/* 결석 */
+.abs-sched-btn{padding:6px 14px;border-radius:7px;border:1px solid #e8e6e0;background:#fff;font-size:12px;cursor:pointer;transition:all .15s;font-weight:500}
+.abs-sched-btn.selected{border-color:#7827C2;background:#7827C220;color:#7827C2}
+.member-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;border:1px solid #e8e6e0;background:#fafaf8;font-size:12px;cursor:pointer;margin:3px;transition:all .15s;font-weight:500}
+.member-chip:hover{border-color:#c4a8e8}
+.member-chip.chosen{border-color:#7827C2;background:#7827C220;color:#7827C2}
+.abs-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:#fafaf8;border:1px solid #e8e6e0;margin-bottom:6px}
+
+/* 파티표 */
+.pool-wrap{background:#fafaf8;border-radius:10px;border:1px solid #e8e6e0;padding:12px;margin-bottom:12px}
+.party-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:700px){.party-grid{grid-template-columns:repeat(2,1fr)}}
+.party-box{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:10px;min-height:170px;transition:border-color .15s,background .15s}
+.party-box.drag-over{border-color:#7827C2;background:#faf5ff}
+.party-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.party-name{font-size:12px;font-weight:700;color:#3d3d3a}
+.party-count{font-size:11px;color:#888;font-weight:500}
+.slot{height:32px;border-radius:6px;border:1px dashed #d3d1c7;display:flex;align-items:center;padding:0 8px;gap:5px;font-size:11px;color:#aaa;margin-bottom:4px;transition:all .15s}
+.slot.filled{border-style:solid;border-color:#e8e6e0;background:#fafaf8;cursor:pointer}
+.slot.filled:hover{border-color:#f09595;background:#FFF5F5}
+.slot.absent-slot{border-color:#f09595;background:#FFF5F5}
+.slot-name{flex:1;font-size:11px;font-weight:600;color:#3d3d3a}
+.slot-job{font-size:10px;color:#888}
+.slot-absent-tag{font-size:9px;padding:2px 6px;border-radius:10px;background:#E24B4A;color:#fff;font-weight:600}
+.member-card{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:1.5px solid transparent;font-size:12px;cursor:grab;user-select:none;background:#fff;margin:3px;transition:opacity .15s,transform .1s;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.member-card:active{cursor:grabbing;transform:scale(1.03);box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.member-card.dragging{opacity:.35}
+.member-card.in-party{opacity:.35;cursor:default;pointer-events:none}
+.member-card.absent{border-style:dashed!important;position:relative}
+.absent-dot{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:#E24B4A;font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+.legend{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#888;font-weight:500}
+.filter-btn{padding:4px 11px;border-radius:20px;border:1px solid #e8e6e0;background:#fff;font-size:12px;cursor:pointer;color:#888;transition:all .15s;font-weight:500}
+.filter-btn.active{border-color:#7827C2;background:#7827C220;color:#7827C2}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>⚔️ 길드 매니저</h1>
+  <div class="nav">
+    <button class="nav-btn active" onclick="showPage('calendar',this)">📅 달력</button>
+    <button class="nav-btn" onclick="showPage('members',this)">👥 단원</button>
+    <button class="nav-btn" onclick="showPage('absence',this)">🙅 결석 신청</button>
+    <button class="nav-btn" onclick="showPage('party',this)">⚔️ 파티표</button>
+  </div>
+
+  <!-- 달력 -->
+  <div class="page active" id="page-calendar">
+    <div id="schedFormWrap" style="display:none">
+      <div class="sched-form">
+        <div class="sched-form-title" id="schedFormTitle">일정 추가</div>
+        <div class="row" style="margin-bottom:10px">
+          <select class="sel" id="schedLabel">
+            <option value="섬원정">섬원정</option>
+            <option value="섬쟁탈전">섬쟁탈전</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="saveSchedule()">저장</button>
+          <button class="btn btn-sm" onclick="document.getElementById('schedFormWrap').style.display='none'">닫기</button>
+        </div>
+        <div id="existingScheds"></div>
+      </div>
+    </div>
+    <div class="cal-wrap">
+      <div class="cal-header">
+        <button class="btn btn-sm" onclick="changeMonth(-1)">◀</button>
+        <span class="cal-month" id="calMonth"></span>
+        <button class="btn btn-sm" onclick="changeMonth(1)">▶</button>
+      </div>
+      <div class="cal-grid" id="calGrid">
+        <div class="loading">불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 단원 -->
+  <div class="page" id="page-members">
+    <div class="card">
+      <div class="card-title">단원 추가</div>
+      <div class="row">
+        <input class="inp" id="mName" placeholder="이름" style="width:120px">
+        <select class="sel" id="mRank">
+          <option>단장</option><option>부단장</option><option>지휘관</option>
+          <option>여명 기사</option><option>보물</option><option>어둠 기사</option>
+          <option>광명 사자</option><option>만령</option><option>사자</option>
+          <option>혼돈 사자</option><option selected>단원</option>
+        </select>
+        <select class="sel" id="mJob">
+          <option>전사</option><option>사제</option><option>거너</option>
+          <option>헌터</option><option>마법사</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="addMember()">추가</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin:0">단원 목록 (<span id="memberCount">0</span>명)</div>
+        <input class="inp" id="memberSearch" placeholder="이름 검색..." oninput="renderMemberTable()" style="width:160px">
+      </div>
+      <div id="memberTableWrap"><div class="loading">불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 결석 신청 -->
+  <div class="page" id="page-absence">
+    <div class="card">
+      <div class="card-title">1. 결석할 날짜 선택 (복수 가능)</div>
+      <div id="absSchedList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+        <div class="loading">불러오는 중...</div>
+      </div>
+      <div class="card-title">2. 본인 선택</div>
+      <input class="inp" id="absSearch" placeholder="이름 검색..." oninput="renderMemberChips()" style="margin-bottom:8px;max-width:240px">
+      <div id="memberChips" style="display:flex;flex-wrap:wrap;max-height:200px;overflow-y:auto;margin-bottom:16px"></div>
+      <button class="btn btn-primary" onclick="submitAbsence()">결석 신청</button>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <div class="card-title" style="margin:0">결석 현황 (<span id="absCount">0</span>건)</div>
+        <select class="sel" id="absFilter" onchange="renderAbsenceList()" style="font-size:12px;padding:4px 8px">
+          <option value="all">전체 날짜</option>
+        </select>
+      </div>
+      <div id="absenceList"></div>
+    </div>
+  </div>
+
+  <!-- 파티표 -->
+  <div class="page" id="page-party">
+    <div class="card" style="padding:10px 14px">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="legend">
+          <span style="font-weight:700;color:#3d3d3a">직업</span>
+          <span><span class="job-dot" style="background:#F7AE60"></span> 전사</span>
+          <span><span class="job-dot" style="background:#A3CA74"></span> 사제</span>
+          <span><span class="job-dot" style="background:#7827C2"></span> 헌터</span>
+          <span><span class="job-dot" style="background:#D6493D"></span> 거너</span>
+          <span><span class="job-dot" style="background:#2F33D9"></span> 마법사</span>
+          <span><span class="job-dot" style="background:#E24B4A"></span> <span style="color:#E24B4A">결석</span></span>
+        </div>
+        <div class="row" style="gap:6px">
+          <select class="sel" id="partySchedSel" onchange="onPartySchedChange()" style="font-size:12px;padding:5px 10px">
+            <option value="">날짜 선택</option>
+          </select>
+          <button class="btn btn-sm btn-danger" onclick="clearParties()">초기화</button>
+          <button class="btn btn-sm btn-primary" onclick="copyPartyImage()">이미지 복사</button>
+        </div>
+      </div>
+    </div>
+    <div class="pool-wrap">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <span style="font-size:12px;font-weight:600;color:#888">단원 <span id="poolCount">0</span>명 · 결석 <span id="poolAbsent" style="color:#E24B4A;font-weight:700">0</span>명</span>
+        <div class="row" style="gap:4px">
+          <input class="inp" id="partySearch" placeholder="검색..." oninput="renderPool()" style="width:90px;padding:4px 8px;font-size:12px">
+          <button class="filter-btn active" id="pfAll" onclick="setPFilter('all',this)">전체</button>
+          <button class="filter-btn" onclick="setPFilter('전사',this)" style="border-left:3px solid #F7AE60">전사</button>
+          <button class="filter-btn" onclick="setPFilter('사제',this)" style="border-left:3px solid #A3CA74">사제</button>
+          <button class="filter-btn" onclick="setPFilter('헌터',this)" style="border-left:3px solid #7827C2">헌터</button>
+          <button class="filter-btn" onclick="setPFilter('거너',this)" style="border-left:3px solid #D6493D">거너</button>
+          <button class="filter-btn" onclick="setPFilter('마법사',this)" style="border-left:3px solid #2F33D9">마법사</button>
+        </div>
+      </div>
+      <div id="memberPool" style="display:flex;flex-wrap:wrap"></div>
+    </div>
+    <div class="party-grid" id="partyGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB='https://jlnkhqibmkzdziunxujl.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsbmtocWlibWt6ZHppdW54dWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjE3OTgsImV4cCI6MjA5MTg5Nzc5OH0._pDOBll88PMbrze8nKceO9UhH237gTIyOoiUCCP54II';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+const JC={전사:'#F7AE60',사제:'#A3CA74',헌터:'#7827C2',거너:'#D6493D',마법사:'#2F33D9'};
+
+async function sb(path,opts={}){
+  const r=await fetch(SB+'/rest/v1/'+path,{headers:H,...opts});
+  if(!r.ok){const e=await r.text();throw new Error(e);}
+  const ct=r.headers.get('content-type');
+  return ct&&ct.includes('json')?r.json():null;
+}
+
+function toast(msg,dur=2200){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+let members=[],schedules=[],absences=[];
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
+let selectedCalDate=null,selectedAbsScheds=new Set(),selectedAbsMember=null;
+let dragId=null,pFilter='all',partyAbsSet=new Set();
+const parties=Array.from({length:12},(_,i)=>({id:i,name:`${i+1}파티`,slots:Array(5).fill(null)}));
+
+async function loadAll(){
+  try{
+    [members,schedules,absences]=await Promise.all([
+      sb('members?select=*&order=name'),
+      sb('schedules?select=*&order=date'),
+      sb('absences?select=*')
+    ]);
+    renderCalendar();renderMemberTable();renderMemberChips();
+    renderAbsSchedList();renderAbsenceList();initAbsFilter();
+    renderPool();renderParties();initPartySchedSel();
+    toast(`✅ ${members.length}명 로드 완료`);
+  }catch(e){
+    toast('⚠️ DB 연결 오류: '+e.message,5000);
+    console.error(e);
+  }
+}
+
+/* ── 달력 ── */
+function renderCalendar(){
+  const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('calMonth').textContent=`${calYear}년 ${months[calMonth]}`;
+  const grid=document.getElementById('calGrid');grid.innerHTML='';
+  ['일','월','화','수','목','금','토'].forEach(d=>{
+    const el=document.createElement('div');el.className='cal-day-label';el.textContent=d;grid.appendChild(el);
+  });
+  const first=new Date(calYear,calMonth,1).getDay();
+  const days=new Date(calYear,calMonth+1,0).getDate();
+  const today=new Date();
+  for(let i=0;i<first;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}
+  for(let d=1;d<=days;d++){
+    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
+    const el=document.createElement('div');
+    el.className='cal-day'+(isToday?' today':'');
+    const dayScheds=schedules.filter(s=>s.date===dateStr);
+    el.innerHTML=`<div class="cal-num">${d}</div>${dayScheds.map(s=>`<div class="cal-event ${s.label==='섬원정'?'expedition':'conquest'}">${s.label}</div>`).join('')}`;
+    el.onclick=()=>openSchedForm(dateStr,dayScheds);
+    grid.appendChild(el);
+  }
+}
+
+function changeMonth(d){
+  calMonth+=d;
+  if(calMonth>11){calMonth=0;calYear++;}
+  else if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+
+function openSchedForm(dateStr,existing){
+  selectedCalDate=dateStr;
+  document.getElementById('schedFormWrap').style.display='block';
+  document.getElementById('schedFormTitle').textContent=`📅 ${dateStr}`;
+  const ex=document.getElementById('existingScheds');
+  if(existing.length){
+    ex.innerHTML='<div style="margin-bottom:6px;font-size:12px;font-weight:600;color:#888">등록된 일정</div>'+
+      existing.map(s=>`<div class="row" style="margin-bottom:5px">
+        <span class="tag ${s.label==='섬원정'?'tag-expedition':'tag-conquest'}">${s.label}</span>
+        <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${s.id}')">삭제</button>
+      </div>`).join('');
+  } else {
+    ex.innerHTML='';
+  }
+  document.getElementById('schedFormWrap').scrollIntoView({behavior:'smooth'});
+}
+
+async function saveSchedule(){
+  if(!selectedCalDate)return;
+  const label=document.getElementById('schedLabel').value;
+  try{
+    await sb('schedules',{method:'POST',body:JSON.stringify({date:selectedCalDate,label})});
+    schedules=await sb('schedules?select=*&order=date');
+    renderCalendar();
+    openSchedForm(selectedCalDate,schedules.filter(s=>s.date===selectedCalDate));
+    initPartySchedSel();initAbsFilter();renderAbsSchedList();
+    toast('✅ 일정 저장됨');
+  }catch(e){toast('⚠️ 저장 오류: '+e.message,3000);}
+}
+
+async function deleteSchedule(id){
+  try{
+    await sb(`schedules?id=eq.${id}`,{method:'DELETE',headers:{...H,'Prefer':'return=minimal'}});
+    schedules=await sb('schedules?select=*&order=date');
+    renderCalendar();
+    openSchedForm(selectedCalDate,schedules.filter(s=>s.date===selectedCalDate));
+    initPartySchedSel();initAbsFilter();renderAbsSchedList();
+    toast('🗑️ 일정 삭제됨');
+  }catch(e){toast('⚠️ 삭제 오류',3000);}
+}
+
+/* ── 단원 ── */
+function renderMemberTable(){
+  const q=(document.getElementById('memberSearch')?.value||'').trim();
+  const filtered=members.filter(m=>!q||m.name.includes(q));
+  document.getElementById('memberCount').textContent=members.length;
+  const wrap=document.getElementById('memberTableWrap');
+  if(!filtered.length){wrap.innerHTML='<div class="empty">단원이 없습니다</div>';return;}
+  wrap.innerHTML=`<table class="member-table"><thead><tr><th>이름</th><th>직위</th><th>직업</th><th></th></tr></thead><tbody>${
+    filtered.map(m=>`<tr>
+      <td style="font-weight:600">${m.name}</td>
+      <td>${m.rank}</td>
+      <td><span class="job-dot" style="background:${JC[m.job]||'#888'}"></span> ${m.job}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteMember('${m.id}')">삭제</button></td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function addMember(){
+  const name=document.getElementById('mName').value.trim();
+  const rank=document.getElementById('mRank').value;
+  const job=document.getElementById('mJob').value;
+  if(!name){toast('이름을 입력해주세요');return;}
+  try{
+    await sb('members',{method:'POST',body:JSON.stringify({name,rank,job})});
+    members=await sb('members?select=*&order=name');
+    document.getElementById('mName').value='';
+    renderMemberTable();renderMemberChips();renderPool();
+    toast(`✅ ${name} 추가됨`);
+  }catch(e){toast('⚠️ '+e.message,3000);}
+}
+
+async function deleteMember(id){
+  if(!confirm('정말 삭제할까요?'))return;
+  try{
+    await sb(`members?id=eq.${id}`,{method:'DELETE',headers:{...H,'Prefer':'return=minimal'}});
+    members=await sb('members?select=*&order=name');
+    renderMemberTable();renderMemberChips();renderPool();
+    toast('🗑️ 삭제됨');
+  }catch(e){toast('⚠️ 삭제 오류',3000);}
+}
+
+/* ── 결석 ── */
+function renderAbsSchedList(){
+  const el=document.getElementById('absSchedList');
+  if(!schedules.length){el.innerHTML='<span style="font-size:13px;color:#aaa">달력에서 일정을 먼저 추가해주세요</span>';return;}
+  el.innerHTML=schedules.map(s=>`<button class="abs-sched-btn${selectedAbsScheds.has(s.id)?' selected':''}" onclick="toggleAbsSched('${s.id}')">${s.date.slice(5).replace('-','/')} ${s.label}</button>`).join('');
+}
+
+function toggleAbsSched(id){
+  if(selectedAbsScheds.has(id))selectedAbsScheds.delete(id);else selectedAbsScheds.add(id);
+  renderAbsSchedList();
+}
+
+function renderMemberChips(){
+  const q=(document.getElementById('absSearch')?.value||'').trim();
+  const el=document.getElementById('memberChips');
+  el.innerHTML=members.filter(m=>!q||m.name.includes(q)).map(m=>`
+    <div class="member-chip${selectedAbsMember===m.id?' chosen':''}" onclick="selectAbsMember('${m.id}')">
+      <span class="job-dot" style="background:${JC[m.job]||'#888'}"></span>
+      ${m.name}
+      <span style="font-size:10px;color:#888">${m.rank}</span>
+    </div>`).join('');
+}
+
+function selectAbsMember(id){selectedAbsMember=selectedAbsMember===id?null:id;renderMemberChips();}
+
+async function submitAbsence(){
+  if(!selectedAbsScheds.size){toast('날짜를 선택해주세요');return;}
+  if(!selectedAbsMember){toast('본인을 선택해주세요');return;}
+  const dates=[...selectedAbsScheds].map(sid=>schedules.find(x=>x.id===sid)?.date).filter(Boolean);
+  const newDates=dates.filter(d=>!absences.find(a=>a.member_id===selectedAbsMember&&a.date===d));
+  if(!newDates.length){toast('이미 신청된 날짜예요');return;}
+  try{
+    await sb('absences',{method:'POST',body:JSON.stringify(newDates.map(date=>({member_id:selectedAbsMember,date})))});
+    absences=await sb('absences?select=*');
+    selectedAbsScheds.clear();selectedAbsMember=null;
+    renderAbsSchedList();renderMemberChips();renderAbsenceList();
+    renderPool();renderParties();
+    toast('✅ 결석 신청 완료');
+  }catch(e){toast('⚠️ '+e.message,3000);}
+}
+
+function initAbsFilter(){
+  const sel=document.getElementById('absFilter');
+  sel.innerHTML='<option value="all">전체 날짜</option>'+
+    schedules.map(s=>`<option value="${s.date}">${s.date.slice(5).replace('-','/')} ${s.label}</option>`).join('');
+}
+
+function renderAbsenceList(){
+  const filter=document.getElementById('absFilter').value;
+  const filtered=filter==='all'?absences:absences.filter(a=>a.date===filter);
+  document.getElementById('absCount').textContent=absences.length;
+  const el=document.getElementById('absenceList');
+  if(!filtered.length){el.innerHTML='<div class="empty">결석 신청 내역이 없습니다</div>';return;}
+  el.innerHTML=filtered.slice().reverse().map(a=>{
+    const m=members.find(x=>x.id===a.member_id);
+    const s=schedules.find(x=>x.date===a.date);
+    return `<div class="abs-row">
+      <span class="job-dot" style="background:${JC[m?.job]||'#888'}"></span>
+      <span style="font-weight:700;min-width:80px">${m?.name||'?'}</span>
+      <span class="tag ${s?.label==='섬원정'?'tag-expedition':'tag-conquest'}">${s?.label||a.date}</span>
+      <span style="font-size:12px;color:#888;flex:1">${a.date}</span>
+      <button class="btn btn-sm btn-danger" onclick="deleteAbsence('${a.id}')">취소</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteAbsence(id){
+  try{
+    await sb(`absences?id=eq.${id}`,{method:'DELETE',headers:{...H,'Prefer':'return=minimal'}});
+    absences=await sb('absences?select=*');
+    renderAbsenceList();renderPool();renderParties();
+    toast('결석 취소됨');
+  }catch(e){toast('⚠️ 오류',3000);}
+}
+
+/* ── 파티표 ── */
+function initPartySchedSel(){
+  const sel=document.getElementById('partySchedSel');
+  sel.innerHTML='<option value="">날짜 선택</option>'+
+    schedules.map(s=>`<option value="${s.date}">${s.date.slice(5).replace('-','/')} ${s.label}</option>`).join('');
+}
+
+function onPartySchedChange(){
+  const date=document.getElementById('partySchedSel').value;
+  partyAbsSet=new Set(absences.filter(a=>a.date===date).map(a=>a.member_id));
+  renderPool();renderParties();
+}
+
+function renderPool(){
+  const q=(document.getElementById('partySearch')?.value||'').trim();
+  const el=document.getElementById('memberPool');el.innerHTML='';
+  let absCnt=0;
+  members.forEach(m=>{
+    if((pFilter!=='all'&&m.job!==pFilter)||(q&&!m.name.includes(q)))return;
+    const isAbs=partyAbsSet.has(m.id);
+    const inParty=parties.some(p=>p.slots.includes(m.id));
+    if(isAbs)absCnt++;
+    const c=document.createElement('div');
+    c.className='member-card'+(inParty?' in-party':'')+(isAbs?' absent':'');
+    c.style.borderColor=(JC[m.job]||'#888')+(isAbs?'bb':'44');
+    c.draggable=!inParty;c.dataset.id=m.id;
+    c.innerHTML=`${isAbs?'<div class="absent-dot">!</div>':''}<span class="job-dot" style="background:${JC[m.job]||'#888'}"></span><span>${m.name}</span><span style="font-size:10px;color:#888;margin-left:2px">${m.rank}</span>`;
+    if(!inParty){
+      c.addEventListener('dragstart',e=>{dragId=m.id;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+      c.addEventListener('dragend',()=>c.classList.remove('dragging'));
+    }
+    el.appendChild(c);
+  });
+  document.getElementById('poolCount').textContent=members.filter(m=>!parties.some(p=>p.slots.includes(m.id))).length;
+  document.getElementById('poolAbsent').textContent=absCnt;
+}
+
+function renderParties(){
+  const grid=document.getElementById('partyGrid');grid.innerHTML='';
+  parties.forEach(p=>{
+    const box=document.createElement('div');box.className='party-box';
+    const filled=p.slots.filter(Boolean).length;
+    box.innerHTML=`<div class="party-header"><span class="party-name">${p.name}</span><span class="party-count">${filled}/5</span></div><div id="pslots-${p.id}"></div>`;
+    box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('drag-over');});
+    box.addEventListener('dragleave',()=>box.classList.remove('drag-over'));
+    box.addEventListener('drop',e=>{e.preventDefault();box.classList.remove('drag-over');addToParty(p.id,dragId);});
+    grid.appendChild(box);
+    const sl=document.getElementById('pslots-'+p.id);
+    for(let i=0;i<5;i++){
+      const slot=document.createElement('div');
+      const mid=p.slots[i];
+      const m=mid?members.find(x=>x.id===mid):null;
+      if(m){
+        const isAbs=partyAbsSet.has(m.id);
+        slot.className='slot filled'+(isAbs?' absent-slot':'');
+        slot.title='클릭하여 제거';
+        slot.innerHTML=`<span class="job-dot" style="background:${JC[m.job]||'#888'}"></span><span class="slot-name">${m.name}</span><span class="slot-job">${m.job}</span>${isAbs?'<span class="slot-absent-tag">결석</span>':''}`;
+        slot.onclick=()=>removeFromParty(p.id,i);
+      }else{
+        slot.className='slot';slot.textContent='비어 있음';
+        slot.addEventListener('dragover',e=>e.preventDefault());
+        slot.addEventListener('drop',e=>{e.preventDefault();addToParty(p.id,dragId);});
+      }
+      sl.appendChild(slot);
+    }
+  });
+}
+
+function addToParty(pid,mid){
+  if(!mid)return;
+  const m=members.find(x=>x.id===mid);if(!m)return;
+  if(parties.some(p=>p.slots.includes(mid)))return;
+  const p=parties[pid];const ei=p.slots.indexOf(null);if(ei===-1)return;
+  p.slots[ei]=mid;dragId=null;renderPool();renderParties();
+}
+
+function removeFromParty(pid,si){parties[pid].slots[si]=null;renderPool();renderParties();}
+function clearParties(){parties.forEach(p=>{p.slots=Array(5).fill(null);});renderPool();renderParties();}
+
+function setPFilter(f,btn){
+  pFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderPool();
+}
+
+function showPage(name,btn){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-'+name).classList.add('active');
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+async function copyPartyImage(){
+  const btn=event.target;btn.textContent='생성 중...';
+  try{
+    const canvas=document.createElement('canvas');
+    const cols=4,cw=270,ch=215,pad=16,gap=10,rows=3;
+    canvas.width=cols*cw+(cols-1)*gap+pad*2;
+    canvas.height=rows*ch+(rows-1)*gap+pad*2+50;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fafaf8';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#1a1a18';ctx.font='600 15px -apple-system,sans-serif';
+    const sel=document.getElementById('partySchedSel');
+    ctx.fillText('⚔️ '+(sel.options[sel.selectedIndex]?.text||'파티표'),pad,pad+16);
+    if(partyAbsSet.size>0){
+      ctx.fillStyle='#E24B4A';ctx.font='500 12px sans-serif';
+      ctx.fillText(`결석 ${partyAbsSet.size}명 포함`,pad,pad+34);
+    }
+    parties.forEach((p,i)=>{
+      const col=i%cols,row=Math.floor(i/cols);
+      const x=pad+col*(cw+gap),y=pad+50+row*(ch+gap);
+      ctx.fillStyle='#fff';roundRect(ctx,x,y,cw,ch,10);ctx.fill();
+      ctx.strokeStyle='#e8e6e0';ctx.lineWidth=1;ctx.stroke();
+      ctx.fillStyle='#1a1a18';ctx.font='700 12px sans-serif';ctx.fillText(p.name,x+10,y+20);
+      ctx.fillStyle='#888';ctx.font='500 11px sans-serif';
+      ctx.fillText(`${p.slots.filter(Boolean).length}/5`,x+cw-28,y+20);
+      p.slots.forEach((mid,si)=>{
+        const sy=y+28+si*36;
+        const m=mid?members.find(x=>x.id===mid):null;
+        if(m){
+          const isAbs=partyAbsSet.has(m.id);
+          ctx.fillStyle=isAbs?'#FFF5F5':JC[m.job]+'15';
+          roundRect(ctx,x+8,sy,cw-16,30,6);ctx.fill();
+          if(isAbs){ctx.strokeStyle='#f09595';ctx.lineWidth=0.5;ctx.stroke();}
+          ctx.fillStyle=JC[m.job];ctx.beginPath();ctx.arc(x+22,sy+15,6,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle=isAbs?'#A32D2D':'#1a1a18';
+          ctx.font='600 11px sans-serif';ctx.fillText(m.name,x+33,sy+19);
+          ctx.fillStyle='#888';ctx.font='500 10px sans-serif';
+          ctx.fillText(m.job,x+cw-34,sy+19);
+          if(isAbs){
+            ctx.fillStyle='#E24B4A';roundRect(ctx,x+cw-52,sy+7,24,14,7);ctx.fill();
+            ctx.fillStyle='#fff';ctx.font='700 9px sans-serif';ctx.fillText('결석',x+cw-48,sy+17);
+          }
+        }else{
+          ctx.fillStyle='#f5f5f3';roundRect(ctx,x+8,sy,cw-16,30,6);ctx.fill();
+        }
+      });
+    });
+    canvas.toBlob(async blob=>{
+      try{
+        await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+        btn.textContent='복사 완료!';setTimeout(()=>btn.textContent='이미지 복사',2200);
+      }catch(e){
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='party.png';a.click();
+        btn.textContent='이미지 복사';
+      }
+    });
+  }catch(e){btn.textContent='이미지 복사';toast('⚠️ 오류: '+e.message,3000);}
+}
+
+loadAll();
+</script>
+</body>
+</html>
