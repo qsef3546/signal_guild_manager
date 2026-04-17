@@ -760,13 +760,15 @@ async function copyPartyImage(){
           if(isAbs){ctx.strokeStyle='#f09595';ctx.lineWidth=0.5;ctx.stroke();}
           ctx.fillStyle=JC[m.job];ctx.beginPath();ctx.arc(x+22,sy+15,6,0,Math.PI*2);ctx.fill();
           ctx.fillStyle=isAbs?'#A32D2D':'#1a1a18';
-          ctx.font='600 11px sans-serif';ctx.fillText(m.name,x+33,sy+19);
-          ctx.fillStyle='#888';ctx.font='500 10px sans-serif';
-          ctx.fillText(m.job,x+cw-34,sy+19);
+          ctx.font='600 11px sans-serif';ctx.textAlign='left';ctx.fillText(m.name,x+33,sy+19);
+          ctx.fillStyle='#888';ctx.font='500 10px sans-serif';ctx.textAlign='right';
+          ctx.fillText(m.job,x+cw-(isAbs?36:10),sy+19);
           if(isAbs){
-            ctx.fillStyle='#E24B4A';roundRect(ctx,x+cw-52,sy+7,24,14,7);ctx.fill();
-            ctx.fillStyle='#fff';ctx.font='700 9px sans-serif';ctx.fillText('결석',x+cw-48,sy+17);
+            ctx.textAlign='left';
+            ctx.fillStyle='#E24B4A';roundRect(ctx,x+cw-28,sy+7,20,14,7);ctx.fill();
+            ctx.fillStyle='#fff';ctx.font='700 9px sans-serif';ctx.fillText('결석',x+cw-25,sy+17);
           }
+          ctx.textAlign='left';
         }else{
           ctx.fillStyle='#f5f5f3';roundRect(ctx,x+8,sy,cw-16,30,6);ctx.fill();
         }
