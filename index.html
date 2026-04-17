@@ -59,12 +59,12 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
 .sched-form-title{font-size:14px;font-weight:600;color:#7827C2;margin-bottom:10px}
 
 /* 단원 */
-.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px}
-.member-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;border:1px solid #eeece6;background:#fff;font-size:12px;transition:all .12s;min-width:0;cursor:pointer}
-.member-item:hover{border-color:#c4a8e8;background:#faf5ff}
-.member-item .mi-name{font-weight:600;color:#3d3d3a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-.member-item .mi-rank{font-size:10px;color:#888;flex-shrink:0}
-.member-item .mi-del{padding:2px 6px;font-size:10px;border-radius:4px;border:1px solid #f09595;background:#fff;color:#A32D2D;cursor:pointer;opacity:0;transition:opacity .12s;flex-shrink:0}
+.member-grid{display:flex;flex-wrap:wrap}
+.member-item{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:1.5px solid transparent;background:#fff;font-size:12px;font-weight:500;cursor:pointer;margin:3px;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .12s}
+.member-item:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.1)}
+.member-item .mi-name{color:#3d3d3a}
+.member-item .mi-rank{font-size:10px;color:#888;margin-left:2px}
+.member-item .mi-del{padding:2px 6px;font-size:10px;border-radius:4px;border:1px solid #f09595;background:#fff;color:#A32D2D;cursor:pointer;opacity:0;transition:opacity .12s;margin-left:4px}
 .member-item:hover .mi-del{opacity:1}
 .member-section{margin-bottom:10px}
 .member-section-header{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:3px;border-bottom:2px solid #eee}
@@ -183,9 +183,17 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
       </div>
     </div>
     <div class="card">
-      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div class="card-title" style="margin:0">단원 목록 (<span id="memberCount">0</span>명)</div>
-        <input class="inp" id="memberSearch" placeholder="이름 검색..." oninput="renderMemberTable()" style="width:160px">
+        <div class="row" style="gap:4px">
+          <input class="inp" id="memberSearch" placeholder="이름 검색..." oninput="renderMemberTable()" style="width:140px;padding:4px 10px;font-size:12px">
+          <button class="filter-btn active" id="mfAll" onclick="setMFilter('all',this)">전체</button>
+          <button class="filter-btn" onclick="setMFilter('전사',this)" style="border-left:3px solid #F7AE60">전사</button>
+          <button class="filter-btn" onclick="setMFilter('사제',this)" style="border-left:3px solid #A3CA74">사제</button>
+          <button class="filter-btn" onclick="setMFilter('헌터',this)" style="border-left:3px solid #7827C2">헌터</button>
+          <button class="filter-btn" onclick="setMFilter('거너',this)" style="border-left:3px solid #D6493D">거너</button>
+          <button class="filter-btn" onclick="setMFilter('마법사',this)" style="border-left:3px solid #2F33D9">마법사</button>
+        </div>
       </div>
       <div id="memberTableWrap"><div class="loading">불러오는 중...</div></div>
     </div>
@@ -319,7 +327,7 @@ function toast(msg,dur=2200){
 let members=[],schedules=[],absences=[];
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let selectedCalDate=null,selectedAbsScheds=new Set(),selectedAbsMember=null;
-let dragId=null,pFilter='all',partyAbsSet=new Set(),partyScheduleId='',partyMemo='';
+let dragId=null,pFilter='all',mFilter='all',partyAbsSet=new Set(),partyScheduleId='',partyMemo='';
 let dragPartyId=null,partyGroups=[];
 const GROUP_COLORS=['#3B82F6','#10B981','#F59E0B','#EC4899','#EF4444','#14B8A6','#A855F7','#F97316'];
 
@@ -464,7 +472,8 @@ function renderMemberTable(){
   const wrap=document.getElementById('memberTableWrap');
   if(!filtered.length){wrap.innerHTML='<div class="empty">단원이 없습니다</div>';return;}
   const JOBS=['전사','사제','헌터','거너','마법사'];
-  wrap.innerHTML=JOBS.map(job=>{
+  const jobsToShow=mFilter==='all'?JOBS:[mFilter];
+  const html=jobsToShow.map(job=>{
     const list=filtered.filter(m=>m.job===job).sort(byRankThenName);
     if(!list.length)return '';
     return `<div class="member-section">
@@ -474,7 +483,7 @@ function renderMemberTable(){
         <span style="font-size:11px;color:#aaa">${list.length}명</span>
       </div>
       <div class="member-grid">${list.map(m=>`
-        <div class="member-item" title="클릭하여 수정" onclick="openEditModal('${m.id}')">
+        <div class="member-item" title="클릭하여 수정" style="border-color:${(JC[m.job]||'#888')}44" onclick="openEditModal('${m.id}')">
           <span class="job-dot" style="background:${JC[m.job]||'#888'}"></span>
           <span class="mi-name">${m.name}</span>
           <span class="mi-rank">${m.rank}</span>
@@ -482,6 +491,14 @@ function renderMemberTable(){
         </div>`).join('')}</div>
     </div>`;
   }).join('');
+  wrap.innerHTML=html||'<div class="empty">해당 조건의 단원이 없습니다</div>';
+}
+
+function setMFilter(f,btn){
+  mFilter=f;
+  document.querySelectorAll('#page-members .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMemberTable();
 }
 
 async function addMember(){
