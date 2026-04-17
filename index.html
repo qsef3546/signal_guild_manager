@@ -88,14 +88,19 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
 
 /* 파티표 */
 .pool-wrap{background:#fafaf8;border-radius:10px;border:1px solid #e8e6e0;padding:12px;margin-bottom:12px}
+.party-layout{display:grid;grid-template-columns:4fr 1fr;gap:10px;align-items:stretch}
 .party-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:700px){.party-grid{grid-template-columns:repeat(2,1fr)}}
-.party-box{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:10px;min-height:170px;transition:border-color .15s,background .15s}
+@media(max-width:900px){.party-layout{grid-template-columns:1fr}.party-grid{grid-template-columns:repeat(2,1fr)}}
+.party-box{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:8px;transition:border-color .15s,background .15s}
 .party-box.drag-over{border-color:#7827C2;background:#faf5ff}
-.party-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.party-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .party-name{font-size:12px;font-weight:700;color:#3d3d3a}
 .party-count{font-size:11px;color:#888;font-weight:500}
-.slot{height:32px;border-radius:6px;border:1px dashed #d3d1c7;display:flex;align-items:center;padding:0 8px;gap:5px;font-size:11px;color:#aaa;margin-bottom:4px;transition:all .15s}
+.slot{height:26px;border-radius:6px;border:1px dashed #d3d1c7;display:flex;align-items:center;padding:0 7px;gap:5px;font-size:11px;color:#aaa;margin-bottom:2px;transition:all .15s}
+.party-memo{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:10px;display:flex;flex-direction:column}
+.party-memo-label{font-size:12px;font-weight:700;color:#3d3d3a;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.party-memo textarea{flex:1;min-height:400px;border:1px solid #e8e6e0;border-radius:6px;padding:8px;font-family:inherit;font-size:12px;resize:none;outline:none;background:#fafaf8;color:#3d3d3a;line-height:1.5}
+.party-memo textarea:focus{border-color:#7827C2;box-shadow:0 0 0 3px #7827C220}
 .slot.filled{border-style:solid;border-color:#e8e6e0;background:#fafaf8;cursor:pointer}
 .slot.filled:hover{border-color:#f09595;background:#FFF5F5}
 .slot.absent-slot{border-color:#f09595;background:#FFF5F5}
@@ -241,7 +246,13 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
       </div>
       <div id="memberPool" style="display:flex;flex-wrap:wrap"></div>
     </div>
-    <div class="party-grid" id="partyGrid"></div>
+    <div class="party-layout">
+      <div class="party-grid" id="partyGrid"></div>
+      <div class="party-memo">
+        <div class="party-memo-label">📝 메모</div>
+        <textarea id="partyMemo" placeholder="파티 운영 메모, 공지사항 등..." oninput="partyMemo=this.value"></textarea>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -302,7 +313,7 @@ function toast(msg,dur=2200){
 let members=[],schedules=[],absences=[];
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let selectedCalDate=null,selectedAbsScheds=new Set(),selectedAbsMember=null;
-let dragId=null,pFilter='all',partyAbsSet=new Set(),partyScheduleId='';
+let dragId=null,pFilter='all',partyAbsSet=new Set(),partyScheduleId='',partyMemo='';
 const parties=Array.from({length:12},(_,i)=>({id:i,name:`${i+1}파티`,slots:Array(5).fill(null)}));
 
 async function loadAll(){
@@ -583,9 +594,10 @@ async function onPartySchedChange(){
 
 async function loadParties(){
   parties.forEach(p=>{p.slots=Array(5).fill(null);});
+  partyMemo='';
   if(partyScheduleId){
     try{
-      const rows=await sb(`party_compositions?schedule_id=eq.${partyScheduleId}&select=parties`);
+      const rows=await sb(`party_compositions?schedule_id=eq.${partyScheduleId}&select=parties,memo`);
       if(rows.length){
         const saved=rows[0].parties||[];
         saved.forEach((slots,i)=>{
@@ -593,9 +605,11 @@ async function loadParties(){
           const arr=Array.isArray(slots)?slots:[];
           parties[i].slots=Array.from({length:5},(_,j)=>arr[j]||null);
         });
+        partyMemo=rows[0].memo||'';
       }
     }catch(e){toast('⚠️ 불러오기 실패: '+e.message,3000);}
   }
+  const ta=document.getElementById('partyMemo');if(ta)ta.value=partyMemo;
   renderPool();renderParties();
 }
 
@@ -605,7 +619,7 @@ async function saveParties(){
     await sb('party_compositions?on_conflict=schedule_id',{
       method:'POST',
       headers:{...H,'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({schedule_id:partyScheduleId,parties:parties.map(p=>p.slots)})
+      body:JSON.stringify({schedule_id:partyScheduleId,parties:parties.map(p=>p.slots),memo:partyMemo})
     });
     toast('✅ 파티표 저장됨');
   }catch(e){toast('⚠️ 저장 오류: '+e.message,3000);}
@@ -730,8 +744,9 @@ async function copyPartyImage(){
   const btn=event.target;btn.textContent='생성 중...';
   try{
     const canvas=document.createElement('canvas');
-    const cols=4,cw=270,ch=215,pad=16,gap=10,rows=3;
-    canvas.width=cols*cw+(cols-1)*gap+pad*2;
+    const cols=4,cw=270,ch=180,pad=16,gap=10,rows=3;
+    const memoW=cw;
+    canvas.width=cols*cw+(cols-1)*gap+pad*2+memoW+gap;
     canvas.height=rows*ch+(rows-1)*gap+pad*2+50;
     const ctx=canvas.getContext('2d');
     ctx.fillStyle='#fafaf8';ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -747,33 +762,59 @@ async function copyPartyImage(){
       const x=pad+col*(cw+gap),y=pad+50+row*(ch+gap);
       ctx.fillStyle='#fff';roundRect(ctx,x,y,cw,ch,10);ctx.fill();
       ctx.strokeStyle='#e8e6e0';ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle='#1a1a18';ctx.font='700 12px sans-serif';ctx.fillText(p.name,x+10,y+20);
+      ctx.fillStyle='#1a1a18';ctx.font='700 12px sans-serif';ctx.textAlign='left';ctx.fillText(p.name,x+10,y+18);
       ctx.fillStyle='#888';ctx.font='500 11px sans-serif';
-      ctx.fillText(`${p.slots.filter(Boolean).length}/5`,x+cw-28,y+20);
+      ctx.fillText(`${p.slots.filter(Boolean).length}/5`,x+cw-28,y+18);
       p.slots.forEach((mid,si)=>{
-        const sy=y+28+si*36;
+        const sy=y+24+si*30;
         const m=mid?members.find(x=>x.id===mid):null;
         if(m){
           const isAbs=partyAbsSet.has(m.id);
           ctx.fillStyle=isAbs?'#FFF5F5':JC[m.job]+'15';
-          roundRect(ctx,x+8,sy,cw-16,30,6);ctx.fill();
+          roundRect(ctx,x+8,sy,cw-16,26,6);ctx.fill();
           if(isAbs){ctx.strokeStyle='#f09595';ctx.lineWidth=0.5;ctx.stroke();}
-          ctx.fillStyle=JC[m.job];ctx.beginPath();ctx.arc(x+22,sy+15,6,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle=JC[m.job];ctx.beginPath();ctx.arc(x+22,sy+13,5,0,Math.PI*2);ctx.fill();
           ctx.fillStyle=isAbs?'#A32D2D':'#1a1a18';
-          ctx.font='600 11px sans-serif';ctx.textAlign='left';ctx.fillText(m.name,x+33,sy+19);
+          ctx.font='600 11px sans-serif';ctx.textAlign='left';ctx.fillText(m.name,x+32,sy+17);
           ctx.fillStyle='#888';ctx.font='500 10px sans-serif';ctx.textAlign='right';
-          ctx.fillText(m.job,x+cw-(isAbs?36:10),sy+19);
+          ctx.fillText(m.job,x+cw-(isAbs?36:10),sy+17);
           if(isAbs){
             ctx.textAlign='left';
-            ctx.fillStyle='#E24B4A';roundRect(ctx,x+cw-28,sy+7,20,14,7);ctx.fill();
-            ctx.fillStyle='#fff';ctx.font='700 9px sans-serif';ctx.fillText('결석',x+cw-25,sy+17);
+            ctx.fillStyle='#E24B4A';roundRect(ctx,x+cw-28,sy+6,20,13,7);ctx.fill();
+            ctx.fillStyle='#fff';ctx.font='700 9px sans-serif';ctx.fillText('결석',x+cw-25,sy+15);
           }
           ctx.textAlign='left';
         }else{
-          ctx.fillStyle='#f5f5f3';roundRect(ctx,x+8,sy,cw-16,30,6);ctx.fill();
+          ctx.fillStyle='#f5f5f3';roundRect(ctx,x+8,sy,cw-16,26,6);ctx.fill();
         }
       });
     });
+    // 메모 박스
+    const mx=pad+cols*(cw+gap);
+    const my=pad+50;
+    const mh=rows*ch+(rows-1)*gap;
+    ctx.fillStyle='#fff';roundRect(ctx,mx,my,memoW,mh,10);ctx.fill();
+    ctx.strokeStyle='#e8e6e0';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='#1a1a18';ctx.font='700 12px sans-serif';ctx.textAlign='left';
+    ctx.fillText('📝 메모',mx+10,my+18);
+    if(partyMemo){
+      ctx.fillStyle='#3d3d3a';ctx.font='500 11px sans-serif';
+      const maxW=memoW-24,lineH=16;
+      let ty=my+40;
+      const limit=my+mh-10;
+      outer: for(const rawLine of partyMemo.split('\n')){
+        if(!rawLine){ty+=lineH;if(ty>limit)break;continue;}
+        let cur='';
+        for(const chr of rawLine){
+          if(ctx.measureText(cur+chr).width>maxW){
+            ctx.fillText(cur,mx+12,ty);ty+=lineH;
+            if(ty>limit)break outer;
+            cur=chr;
+          }else cur+=chr;
+        }
+        if(cur){ctx.fillText(cur,mx+12,ty);ty+=lineH;if(ty>limit)break;}
+      }
+    }
     canvas.toBlob(async blob=>{
       try{
         await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
