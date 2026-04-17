@@ -59,11 +59,24 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
 .sched-form-title{font-size:14px;font-weight:600;color:#7827C2;margin-bottom:10px}
 
 /* 단원 */
-.member-table{width:100%;border-collapse:collapse;font-size:13px}
-.member-table th{text-align:left;padding:8px 10px;background:#fafaf8;border-bottom:1px solid #e8e6e0;font-weight:600;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-.member-table td{padding:8px 10px;border-bottom:1px solid #f0ede8}
-.member-table tr:last-child td{border-bottom:none}
-.member-table tr:hover td{background:#fafaf8}
+.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px}
+.member-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;border:1px solid #eeece6;background:#fff;font-size:12px;transition:all .12s;min-width:0;cursor:pointer}
+.member-item:hover{border-color:#c4a8e8;background:#faf5ff}
+.member-item .mi-name{font-weight:600;color:#3d3d3a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.member-item .mi-rank{font-size:10px;color:#888;flex-shrink:0}
+.member-item .mi-del{padding:2px 6px;font-size:10px;border-radius:4px;border:1px solid #f09595;background:#fff;color:#A32D2D;cursor:pointer;opacity:0;transition:opacity .12s;flex-shrink:0}
+.member-item:hover .mi-del{opacity:1}
+.member-section{margin-bottom:10px}
+.member-section-header{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:3px;border-bottom:2px solid #eee}
+
+/* 수정 모달 */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:9998}
+.modal-backdrop.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:20px;min-width:320px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal-title{font-size:15px;font-weight:700;color:#1a1a18;margin-bottom:14px}
+.modal-field{margin-bottom:10px}
+.modal-label{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;display:block}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
 /* 결석 */
 .abs-sched-btn{padding:6px 14px;border-radius:7px;border:1px solid #e8e6e0;background:#fff;font-size:12px;cursor:pointer;transition:all .15s;font-weight:500}
@@ -146,9 +159,10 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
         <input class="inp" id="mName" placeholder="이름" style="width:120px">
         <select class="sel" id="mRank">
           <option>단장</option><option>부단장</option><option>지휘관</option>
-          <option>여명 기사</option><option>보물</option><option>어둠 기사</option>
-          <option>광명 사자</option><option>만령</option><option>사자</option>
-          <option>혼돈 사자</option><option selected>단원</option>
+          <option>어둠 기사</option><option>여명 기사</option>
+          <option>광명 사자</option><option>만령 사자</option><option>혼돈 사자</option>
+          <option>보물</option><option>정찰병</option>
+          <option selected>단원</option>
         </select>
         <select class="sel" id="mJob">
           <option>전사</option><option>사제</option><option>거너</option>
@@ -207,6 +221,7 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
             <option value="">날짜 선택</option>
           </select>
           <button class="btn btn-sm btn-danger" onclick="clearParties()">초기화</button>
+          <button class="btn btn-sm btn-primary" onclick="saveParties()">💾 저장</button>
           <button class="btn btn-sm btn-primary" onclick="copyPartyImage()">이미지 복사</button>
         </div>
       </div>
@@ -232,11 +247,45 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-backdrop" id="editModal" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal">
+    <div class="modal-title">단원 정보 수정</div>
+    <div class="modal-field">
+      <label class="modal-label">이름</label>
+      <input class="inp" id="edName">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">직위</label>
+      <select class="sel" id="edRank" style="width:100%">
+        <option>단장</option><option>부단장</option><option>지휘관</option>
+        <option>어둠 기사</option><option>여명 기사</option>
+        <option>광명 사자</option><option>만령 사자</option><option>혼돈 사자</option>
+        <option>보물</option><option>정찰병</option>
+        <option>단원</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">직업</label>
+      <select class="sel" id="edJob" style="width:100%">
+        <option>전사</option><option>사제</option><option>거너</option>
+        <option>헌터</option><option>마법사</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeEditModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveEditMember()">저장</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const SB='https://jlnkhqibmkzdziunxujl.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsbmtocWlibWt6ZHppdW54dWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjE3OTgsImV4cCI6MjA5MTg5Nzc5OH0._pDOBll88PMbrze8nKceO9UhH237gTIyOoiUCCP54II';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
 const JC={전사:'#F7AE60',사제:'#A3CA74',헌터:'#7827C2',거너:'#D6493D',마법사:'#2F33D9'};
+const RANK_ORDER=['단장','부단장','지휘관','어둠 기사','여명 기사','광명 사자','만령 사자','혼돈 사자','보물','정찰병','단원'];
+const rankIdx=r=>{const i=RANK_ORDER.indexOf(r);return i===-1?999:i;};
+const byRankThenName=(a,b)=>rankIdx(a.rank)-rankIdx(b.rank)||a.name.localeCompare(b.name,'ko');
 
 async function sb(path,opts={}){
   const r=await fetch(SB+'/rest/v1/'+path,{headers:H,...opts});
@@ -253,7 +302,7 @@ function toast(msg,dur=2200){
 let members=[],schedules=[],absences=[];
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let selectedCalDate=null,selectedAbsScheds=new Set(),selectedAbsMember=null;
-let dragId=null,pFilter='all',partyAbsSet=new Set();
+let dragId=null,pFilter='all',partyAbsSet=new Set(),partyScheduleId='';
 const parties=Array.from({length:12},(_,i)=>({id:i,name:`${i+1}파티`,slots:Array(5).fill(null)}));
 
 async function loadAll(){
@@ -352,14 +401,25 @@ function renderMemberTable(){
   document.getElementById('memberCount').textContent=members.length;
   const wrap=document.getElementById('memberTableWrap');
   if(!filtered.length){wrap.innerHTML='<div class="empty">단원이 없습니다</div>';return;}
-  wrap.innerHTML=`<table class="member-table"><thead><tr><th>이름</th><th>직위</th><th>직업</th><th></th></tr></thead><tbody>${
-    filtered.map(m=>`<tr>
-      <td style="font-weight:600">${m.name}</td>
-      <td>${m.rank}</td>
-      <td><span class="job-dot" style="background:${JC[m.job]||'#888'}"></span> ${m.job}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="deleteMember('${m.id}')">삭제</button></td>
-    </tr>`).join('')
-  }</tbody></table>`;
+  const JOBS=['전사','사제','헌터','거너','마법사'];
+  wrap.innerHTML=JOBS.map(job=>{
+    const list=filtered.filter(m=>m.job===job).sort(byRankThenName);
+    if(!list.length)return '';
+    return `<div class="member-section">
+      <div class="member-section-header" style="border-bottom-color:${JC[job]}33">
+        <span class="job-dot" style="background:${JC[job]}"></span>
+        <span style="font-size:11px;font-weight:700;color:${JC[job]}">${job}</span>
+        <span style="font-size:11px;color:#aaa">${list.length}명</span>
+      </div>
+      <div class="member-grid">${list.map(m=>`
+        <div class="member-item" title="클릭하여 수정" onclick="openEditModal('${m.id}')">
+          <span class="job-dot" style="background:${JC[m.job]||'#888'}"></span>
+          <span class="mi-name">${m.name}</span>
+          <span class="mi-rank">${m.rank}</span>
+          <button class="mi-del" onclick="event.stopPropagation();deleteMember('${m.id}')">삭제</button>
+        </div>`).join('')}</div>
+    </div>`;
+  }).join('');
 }
 
 async function addMember(){
@@ -373,6 +433,34 @@ async function addMember(){
     document.getElementById('mName').value='';
     renderMemberTable();renderMemberChips();renderPool();
     toast(`✅ ${name} 추가됨`);
+  }catch(e){toast('⚠️ '+e.message,3000);}
+}
+
+let editingMemberId=null;
+function openEditModal(id){
+  const m=members.find(x=>x.id===id);if(!m)return;
+  editingMemberId=id;
+  document.getElementById('edName').value=m.name;
+  document.getElementById('edRank').value=m.rank;
+  document.getElementById('edJob').value=m.job;
+  document.getElementById('editModal').classList.add('show');
+}
+function closeEditModal(){
+  editingMemberId=null;
+  document.getElementById('editModal').classList.remove('show');
+}
+async function saveEditMember(){
+  if(!editingMemberId)return;
+  const name=document.getElementById('edName').value.trim();
+  const rank=document.getElementById('edRank').value;
+  const job=document.getElementById('edJob').value;
+  if(!name){toast('이름을 입력해주세요');return;}
+  try{
+    await sb(`members?id=eq.${editingMemberId}`,{method:'PATCH',headers:{...H,'Prefer':'return=minimal'},body:JSON.stringify({name,rank,job})});
+    members=await sb('members?select=*&order=name');
+    closeEditModal();
+    renderMemberTable();renderMemberChips();renderPool();renderParties();renderAbsenceList();
+    toast(`✅ ${name} 수정됨`);
   }catch(e){toast('⚠️ '+e.message,3000);}
 }
 
@@ -404,7 +492,7 @@ function renderMemberChips(){
   el.innerHTML='';
   const JOBS=['전사','사제','헌터','거너','마법사'];
   JOBS.forEach(job=>{
-    const jobMembers=members.filter(m=>m.job===job&&(!q||m.name.includes(q)));
+    const jobMembers=members.filter(m=>m.job===job&&(!q||m.name.includes(q))).sort(byRankThenName);
     if(!jobMembers.length)return;
     const section=document.createElement('div');
     section.style.cssText='width:100%;margin-bottom:10px';
@@ -480,14 +568,47 @@ async function deleteAbsence(id){
 /* ── 파티표 ── */
 function initPartySchedSel(){
   const sel=document.getElementById('partySchedSel');
+  const prev=partyScheduleId;
   sel.innerHTML='<option value="">날짜 선택</option>'+
-    schedules.map(s=>`<option value="${s.date}">${s.date.slice(5).replace('-','/')} ${s.label}</option>`).join('');
+    schedules.map(s=>`<option value="${s.id}">${s.date.slice(5).replace('-','/')} ${s.label}</option>`).join('');
+  if(prev&&schedules.some(s=>s.id===prev))sel.value=prev;
 }
 
-function onPartySchedChange(){
-  const date=document.getElementById('partySchedSel').value;
-  partyAbsSet=new Set(absences.filter(a=>a.date===date).map(a=>a.member_id));
+async function onPartySchedChange(){
+  partyScheduleId=document.getElementById('partySchedSel').value;
+  const s=schedules.find(x=>x.id===partyScheduleId);
+  partyAbsSet=new Set(absences.filter(a=>a.date===(s?.date||'')).map(a=>a.member_id));
+  await loadParties();
+}
+
+async function loadParties(){
+  parties.forEach(p=>{p.slots=Array(5).fill(null);});
+  if(partyScheduleId){
+    try{
+      const rows=await sb(`party_compositions?schedule_id=eq.${partyScheduleId}&select=parties`);
+      if(rows.length){
+        const saved=rows[0].parties||[];
+        saved.forEach((slots,i)=>{
+          if(!parties[i])return;
+          const arr=Array.isArray(slots)?slots:[];
+          parties[i].slots=Array.from({length:5},(_,j)=>arr[j]||null);
+        });
+      }
+    }catch(e){toast('⚠️ 불러오기 실패: '+e.message,3000);}
+  }
   renderPool();renderParties();
+}
+
+async function saveParties(){
+  if(!partyScheduleId){toast('날짜를 선택해주세요');return;}
+  try{
+    await sb('party_compositions?on_conflict=schedule_id',{
+      method:'POST',
+      headers:{...H,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({schedule_id:partyScheduleId,parties:parties.map(p=>p.slots)})
+    });
+    toast('✅ 파티표 저장됨');
+  }catch(e){toast('⚠️ 저장 오류: '+e.message,3000);}
 }
 
 function renderPool(){
@@ -501,7 +622,7 @@ function renderPool(){
       if(m.job!==job)return false;
       if(q&&!m.name.includes(q))return false;
       return true;
-    });
+    }).sort(byRankThenName);
     if(!jobMembers.length)return;
     const section=document.createElement('div');
     section.style.cssText='width:100%;margin-bottom:8px';
