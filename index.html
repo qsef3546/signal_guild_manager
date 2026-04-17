@@ -91,10 +91,16 @@ h1{font-size:20px;font-weight:600;margin-bottom:16px;color:#1a1a18}
 .party-layout{display:grid;grid-template-columns:4fr 1fr;gap:10px;align-items:stretch}
 .party-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 @media(max-width:900px){.party-layout{grid-template-columns:1fr}.party-grid{grid-template-columns:repeat(2,1fr)}}
-.party-box{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:8px;transition:border-color .15s,background .15s}
+.party-box{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:8px;transition:border-color .15s,background .15s;position:relative}
 .party-box.drag-over{border-color:#7827C2;background:#faf5ff}
-.party-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.party-box.grouped{border-width:1px;border-top-width:3px}
+.party-box.party-dragging{opacity:.4}
+.party-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;cursor:grab;user-select:none;padding:2px 0}
+.party-header:active{cursor:grabbing}
 .party-name{font-size:12px;font-weight:700;color:#3d3d3a}
+.group-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#fff;padding:2px 8px;border-radius:10px;margin-bottom:5px;cursor:pointer}
+.group-badge .gb-x{opacity:.75;font-weight:800;padding:0 2px}
+.group-badge .gb-x:hover{opacity:1}
 .party-count{font-size:11px;color:#888;font-weight:500}
 .slot{height:26px;border-radius:6px;border:1px dashed #d3d1c7;display:flex;align-items:center;padding:0 7px;gap:5px;font-size:11px;color:#aaa;margin-bottom:2px;transition:all .15s}
 .party-memo{background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:10px;display:flex;flex-direction:column}
@@ -314,6 +320,51 @@ let members=[],schedules=[],absences=[];
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 let selectedCalDate=null,selectedAbsScheds=new Set(),selectedAbsMember=null;
 let dragId=null,pFilter='all',partyAbsSet=new Set(),partyScheduleId='',partyMemo='';
+let dragPartyId=null,partyGroups=[];
+const GROUP_COLORS=['#3B82F6','#10B981','#F59E0B','#EC4899','#EF4444','#14B8A6','#A855F7','#F97316'];
+
+function getPartyGroup(pid){return partyGroups.find(g=>g.partyIds.includes(pid));}
+
+function pickGroupColor(){
+  const used=new Set(partyGroups.map(g=>g.color));
+  return GROUP_COLORS.find(c=>!used.has(c))||GROUP_COLORS[partyGroups.length%GROUP_COLORS.length];
+}
+
+function groupParties(srcPid,tgtPid){
+  if(srcPid===tgtPid)return;
+  const src=getPartyGroup(srcPid),tgt=getPartyGroup(tgtPid);
+  if(src&&tgt&&src.id===tgt.id)return;
+  if(src){
+    src.partyIds=src.partyIds.filter(id=>id!==srcPid);
+    if(src.partyIds.length<=1)partyGroups=partyGroups.filter(g=>g.id!==src.id);
+  }
+  if(tgt){
+    if(!tgt.partyIds.includes(srcPid))tgt.partyIds.push(srcPid);
+  }else{
+    partyGroups.push({
+      id:'g'+Date.now()+Math.random().toString(36).slice(2,6),
+      name:'그룹 '+String.fromCharCode(65+partyGroups.length),
+      color:pickGroupColor(),
+      partyIds:[tgtPid,srcPid]
+    });
+  }
+  renderParties();
+}
+
+function ungroupParty(pid){
+  const g=getPartyGroup(pid);if(!g)return;
+  g.partyIds=g.partyIds.filter(id=>id!==pid);
+  if(g.partyIds.length<=1)partyGroups=partyGroups.filter(x=>x.id!==g.id);
+  renderParties();
+}
+
+function renameGroupPrompt(gid){
+  const g=partyGroups.find(x=>x.id===gid);if(!g)return;
+  const name=prompt('그룹 이름을 입력하세요',g.name);
+  if(name===null)return;
+  const trimmed=name.trim();if(!trimmed)return;
+  g.name=trimmed;renderParties();
+}
 const parties=Array.from({length:12},(_,i)=>({id:i,name:`${i+1}파티`,slots:Array(5).fill(null)}));
 
 async function loadAll(){
@@ -594,20 +645,27 @@ async function onPartySchedChange(){
 
 async function loadParties(){
   parties.forEach(p=>{p.slots=Array(5).fill(null);});
-  partyMemo='';
+  partyMemo='';partyGroups=[];
   if(partyScheduleId){
+    let rows=null;
     try{
-      const rows=await sb(`party_compositions?schedule_id=eq.${partyScheduleId}&select=parties,memo`);
-      if(rows.length){
-        const saved=rows[0].parties||[];
-        saved.forEach((slots,i)=>{
-          if(!parties[i])return;
-          const arr=Array.isArray(slots)?slots:[];
-          parties[i].slots=Array.from({length:5},(_,j)=>arr[j]||null);
-        });
-        partyMemo=rows[0].memo||'';
-      }
-    }catch(e){toast('⚠️ 불러오기 실패: '+e.message,3000);}
+      rows=await sb(`party_compositions?schedule_id=eq.${partyScheduleId}&select=parties,memo,groups`);
+    }catch(e){
+      try{
+        rows=await sb(`party_compositions?schedule_id=eq.${partyScheduleId}&select=parties,memo`);
+        console.warn('groups 컬럼 미존재 — fallback. ALTER TABLE 필요:',e.message);
+      }catch(e2){toast('⚠️ 불러오기 실패: '+e2.message,3000);}
+    }
+    if(rows&&rows.length){
+      const saved=rows[0].parties||[];
+      saved.forEach((slots,i)=>{
+        if(!parties[i])return;
+        const arr=Array.isArray(slots)?slots:[];
+        parties[i].slots=Array.from({length:5},(_,j)=>arr[j]||null);
+      });
+      partyMemo=rows[0].memo||'';
+      partyGroups=Array.isArray(rows[0].groups)?rows[0].groups:[];
+    }
   }
   const ta=document.getElementById('partyMemo');if(ta)ta.value=partyMemo;
   renderPool();renderParties();
@@ -615,14 +673,24 @@ async function loadParties(){
 
 async function saveParties(){
   if(!partyScheduleId){toast('날짜를 선택해주세요');return;}
+  const base={schedule_id:partyScheduleId,parties:parties.map(p=>p.slots),memo:partyMemo};
   try{
     await sb('party_compositions?on_conflict=schedule_id',{
       method:'POST',
       headers:{...H,'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({schedule_id:partyScheduleId,parties:parties.map(p=>p.slots),memo:partyMemo})
+      body:JSON.stringify({...base,groups:partyGroups})
     });
     toast('✅ 파티표 저장됨');
-  }catch(e){toast('⚠️ 저장 오류: '+e.message,3000);}
+  }catch(e){
+    try{
+      await sb('party_compositions?on_conflict=schedule_id',{
+        method:'POST',
+        headers:{...H,'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body:JSON.stringify(base)
+      });
+      toast('✅ 저장됨 (그룹 제외 — groups 컬럼 없음)',3000);
+    }catch(e2){toast('⚠️ 저장 오류: '+e2.message,3000);}
+  }
 }
 
 function renderPool(){
@@ -672,11 +740,32 @@ function renderParties(){
   const grid=document.getElementById('partyGrid');grid.innerHTML='';
   parties.forEach(p=>{
     const box=document.createElement('div');box.className='party-box';
+    const group=getPartyGroup(p.id);
+    if(group){
+      box.classList.add('grouped');
+      box.style.borderTopColor=group.color;
+      box.style.background=group.color+'0C';
+    }
+    const badge=group?`<div class="group-badge" style="background:${group.color}" onclick="event.stopPropagation();renameGroupPrompt('${group.id}')" title="클릭하여 이름 변경"><span>${group.name}</span><span class="gb-x" onclick="event.stopPropagation();ungroupParty(${p.id})" title="그룹에서 제외">×</span></div>`:'';
     const filled=p.slots.filter(Boolean).length;
-    box.innerHTML=`<div class="party-header"><span class="party-name">${p.name}</span><span class="party-count">${filled}/5</span></div><div id="pslots-${p.id}"></div>`;
+    box.innerHTML=`${badge}<div class="party-header" draggable="true" data-pid="${p.id}"><span class="party-name">${p.name}</span><span class="party-count">${filled}/5</span></div><div id="pslots-${p.id}"></div>`;
+    const header=box.querySelector('.party-header');
+    header.addEventListener('dragstart',e=>{
+      dragPartyId=p.id;dragId=null;
+      e.dataTransfer.effectAllowed='move';
+      try{e.dataTransfer.setData('text/plain','p'+p.id);}catch(_){}
+      box.classList.add('party-dragging');
+    });
+    header.addEventListener('dragend',()=>{
+      dragPartyId=null;box.classList.remove('party-dragging');
+    });
     box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('drag-over');});
     box.addEventListener('dragleave',()=>box.classList.remove('drag-over'));
-    box.addEventListener('drop',e=>{e.preventDefault();box.classList.remove('drag-over');addToParty(p.id,dragId);});
+    box.addEventListener('drop',e=>{
+      e.preventDefault();box.classList.remove('drag-over');
+      if(dragPartyId!=null){groupParties(dragPartyId,p.id);dragPartyId=null;}
+      else if(dragId){addToParty(p.id,dragId);}
+    });
     grid.appendChild(box);
     const sl=document.getElementById('pslots-'+p.id);
     for(let i=0;i<5;i++){
@@ -708,7 +797,7 @@ function addToParty(pid,mid){
 }
 
 function removeFromParty(pid,si){parties[pid].slots[si]=null;renderPool();renderParties();}
-function clearParties(){parties.forEach(p=>{p.slots=Array(5).fill(null);});renderPool();renderParties();}
+function clearParties(){parties.forEach(p=>{p.slots=Array(5).fill(null);});partyGroups=[];renderPool();renderParties();}
 
 function setPFilter(f,btn){
   pFilter=f;
@@ -760,9 +849,16 @@ async function copyPartyImage(){
     parties.forEach((p,i)=>{
       const col=i%cols,row=Math.floor(i/cols);
       const x=pad+col*(cw+gap),y=pad+50+row*(ch+gap);
-      ctx.fillStyle='#fff';roundRect(ctx,x,y,cw,ch,10);ctx.fill();
+      const pg=getPartyGroup(p.id);
+      ctx.fillStyle=pg?pg.color+'0C':'#fff';roundRect(ctx,x,y,cw,ch,10);ctx.fill();
       ctx.strokeStyle='#e8e6e0';ctx.lineWidth=1;ctx.stroke();
+      if(pg){ctx.fillStyle=pg.color;ctx.fillRect(x+1,y+1,cw-2,3);}
       ctx.fillStyle='#1a1a18';ctx.font='700 12px sans-serif';ctx.textAlign='left';ctx.fillText(p.name,x+10,y+18);
+      if(pg){
+        ctx.fillStyle=pg.color;ctx.font='700 10px sans-serif';
+        const nameW=ctx.measureText(p.name).width;
+        ctx.fillText(' · '+pg.name,x+10+nameW,y+18);
+      }
       ctx.fillStyle='#888';ctx.font='500 11px sans-serif';
       ctx.fillText(`${p.slots.filter(Boolean).length}/5`,x+cw-28,y+18);
       p.slots.forEach((mid,si)=>{
